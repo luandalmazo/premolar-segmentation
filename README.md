@@ -1,4 +1,4 @@
-# Segmentação de dentes pré-molares através de técnicas de pré-processamento de imagens e Deep Learning
+# Segmentação de dentes pré-molares por meio de técnicas de pré-processamento de imagens e Deep Learning
 
 Este projeto tem como objetivo a segmentação automatizada de dentes pré-molares superiores (14, 15, 24 e 25) utilizando imagens de Tomografia Computadorizada de Feixe Cônico (CBCT).
 
