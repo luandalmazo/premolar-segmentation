@@ -1,39 +1,20 @@
-# Segmentação de dentes pré-molares por meio de técnicas de pré-processamento de imagens e Deep Learning
+# Segmentation of Premolar Teeth Using Image Pre-processing Techniques and Deep Learning
 
-Este projeto tem como objetivo a segmentação automatizada de dentes pré-molares superiores (14, 15, 24 e 25) utilizando imagens de Tomografia Computadorizada de Feixe Cônico (CBCT).
+This project aims at the automated segmentation of upper premolar teeth (14, 15, 24, and 25) using Cone Beam Computed Tomography (CBCT) images.
 
 ---
 
-## 🦷 Para Dentistas (Tutorial 3D Slicer)
+## 💻 For Developers
 
-Se o seu objetivo é utilizar o modelo já treinado para auxiliar em segmentações, siga o passo a passo abaixo para rodar a segmentação automática.
+This guide describes the steps required to replicate the processing, training, and evaluation performed.
 
-### Passo a Passo:
-1. **Instalação do Slicer:** Certifique-se de ter o [3D Slicer](https://download.slicer.org/) instalado em seu computador.
-2. **Instalação da Extensão:** - Vá em `View` --> `Extensions Manager` --> `Install Extensions`. 
-   - Procure por **nnUNet** e clique em instalar. Reinicie o Slicer se solicitado.
-3. **Configuração do Módulo:** - No menu de módulos (aba `Welcome to Slicer`), vá na categoria `Segmentation` e selecione **nnUNet**. 
-   - Clique em `nnUNet Install` e depois em `Install` para instalar as dependências internas.
-4. **Execução da Segmentação:**
-   - Realize download dos arquivos disponibilizados [AQUI para nnU-Net](https://drive.google.com/drive/folders/1p40SNDsTysR7Bkl3_OfqckU2fip1h1Sc?usp=sharing) ou [AQUI para nnU-Net ResNet](https://drive.google.com/drive/folders/10wGI0_L4LN5kStCGFCX55olkQfJUY64o?usp=sharing) (Realize o download da pasta completa).
-   - Em `nnUNet Run Settings`, no campo `Model path`, aponte para a pasta que você realizou o download.
-   - No campo `Checkpoint name`, coloque o nome `checkpoint_best.pth`.
-   - Para `Folds`, coloque o valor `0`.
-   - Importe o volume da tomografia para o 3D Slicer (arraste o arquivo DICOM ou .nii.gz).
-   - No campo `Input volume`, selecione o volume que foi importado e pressione **Apply**.
----
-
-## 💻 Para Desenvolvedores
-
-Este guia descreve os passos necessários para replicar o processamento, treinamento e avaliação realizados.
-
-**Instale as dependências**
+**Install the dependencies**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**Instale a nnU-Net**
+**Install nnU-Net**
 
 ```bash
 git clone https://github.com/MIC-DKFZ/nnUNet.git
@@ -41,95 +22,99 @@ cd nnUNet
 pip install -e .
 ```
 
+### Pretrained Checkpoints
 
-### 1. Preparação e Aumento de Dados
+Pretrained model checkpoints are available for download below. Each folder contains the checkpoints of the fold with the best results.
 
-Antes de iniciar o treinamento, o conjunto de dados deve ser convertido para o formato padrão da nnU-Net.
+- [nnU-Net checkpoints](https://drive.google.com/drive/folders/1p40SNDsTysR7Bkl3_OfqckU2fip1h1Sc?usp=sharing)
+- [nnU-Net ResNet checkpoints](https://drive.google.com/drive/folders/10wGI0_L4LN5kStCGFCX55olkQfJUY64o?usp=sharing)
 
-#### Conversão do Dataset
+### 1. Data Preparation and Augmentation
 
-Certifique-se de que os dados brutos estão organizados e execute a conversão para o padrão `Dataset903_Tooth`:
+Before starting training, the dataset must be converted to the nnU-Net standard format.
+
+#### Dataset Conversion
+
+Make sure the raw data is organized and run the conversion to the `Dataset903_Tooth` standard:
 
     python convert_dataset.py
 
-#### Data Augmentation Manual
+#### Manual Data Augmentation
 
-Execute o script para gerar o aumento de 11x nos volumes:
+Run the script to generate an 11x augmentation of the volumes:
 
     python manual_augmentation.py
 
-#### Geração de Splits
+#### Splits Generation
 
-Para garantir a reprodutibilidade da validação cruzada, gere os arquivos de divisão dos folds:
+To ensure reproducibility of the cross-validation, generate the fold split files:
 
     python generate_splits.py
 
-### 2. Planejamento e Pré-processamento
+### 2. Planning and Pre-processing
 
-O planejamento extrai as propriedades do dataset para configurar as redes.
+Planning extracts the dataset properties to configure the networks.
 
 #### nnU-Net
 
-    # Planejamento padrão da nnU-Net v2 para 80GB de VRAM
+    # Standard nnU-Net v2 planning for 80GB of VRAM
     nnUNetv2_plan_and_preprocess -d 903 -c 3d_fullres
 
-#### nnU-Net ResNet (Caso as imagens já tenham sido preprocessadas anteriormente para treinamento da nnU-Net nativa)
+#### nnU-Net ResNet (if the images have already been preprocessed for training the native nnU-Net)
 
     nnUNetv2_plan_experiment -d 903 \
         -pl nnUNetPlannerResEncL \
         -gpu_memory_target 80 \
         -overwrite_plans_name nnUNetResEncUNetPlans_L_80G
 
-### 3. Treinamento das Arquiteturas
+### 3. Architecture Training
 
-Como o dataset já passou por um processo de aumento de dados manual, utilizamos o trainer `nnUNetTrainerNoDA` para desativar as transformações nativas redundantes.
+Since the dataset has already undergone a manual data augmentation process, we use the `nnUNetTrainerNoDA` trainer to disable the redundant native transformations.
 
-#### nnU-Net Nativa
+#### Native nnU-Net
 
-    # Treinamento do Fold 0 (Repetir de 0 a 4)
+    # Training of Fold 0 (repeat for folds 0 to 4)
     nnUNetv2_train 903 3d_fullres 0 -tr nnUNetTrainerNoDA
 
-#### nnU-Net ResNet 
+#### nnU-Net ResNet
 
-Para a variante ResNet, certifique-se de que o plano específico para o
-encoder residual foi gerado:
+For the ResNet variant, make sure the specific plan for the residual encoder has been generated:
 
-    # Treinamento do Fold 0 utilizando a arquitetura ResNet
+    # Training of Fold 0 using the ResNet architecture
     nnUNetv2_train 903 3d_fullres 0 -p nnUNetResEncUNetPlans_L_80G -tr nnUNetTrainerNoDA
 
-### 4. Predição e Avaliação
+### 4. Prediction and Evaluation
 
-Após a conclusão do treinamento, siga os passos para validar os modelos nos dados de teste.
+After training is complete, follow these steps to validate the models on the test data.
 
-#### Organização dos Testes
+#### Test Organization
 
-Prepare os diretórios de saída:
+Prepare the output directories:
 
     python organize_test_folders.py
 
-#### Predição
+#### Prediction
 
-Execute a inferência utilizando o melhor checkpoint:
+Run inference using the best checkpoint:
 
-    # nnU-Net nativa
+    # Native nnU-Net
     
-    nnUNetv2_predict -i [DIRETORIO_ENTRADA] -o [DIRETORIO_SAIDA] -d 903 -c 3d_fullres -f [FOLDS] -tr [TRAINER_UTILIZADO]
+    nnUNetv2_predict -i [INPUT_DIRECTORY] -o [OUTPUT_DIRECTORY] -d 903 -c 3d_fullres -f [FOLDS] -tr [TRAINER_USED]
     
     # nnU-Net ResNet
     
-    nnUNetv2_predict -i [DIRETORIO_ENTRADA] -o [DIRETORIO_SAIDA] -d 903 -c 3d_fullres -f [FOLDS] -tr [TRAINER_UTILIZADO]-p nnUNetResEncUNetPlans_L_80G
+    nnUNetv2_predict -i [INPUT_DIRECTORY] -o [OUTPUT_DIRECTORY] -d 903 -c 3d_fullres -f [FOLDS] -tr [TRAINER_USED]-p nnUNetResEncUNetPlans_L_80G
     
 
-#### Geração de Métricas
+#### Metrics Generation
 
-Extraia os resultados quantitativos (Dice, IoU, HD95, ASSD):
+Extract the quantitative results (Dice, IoU, HD95, ASSD):
 
     python3 generate_test_results.py
     python3 analyze_results.py
 
-### 🎥 Demonstração no 3D Slicer
+### 🎥 3D Slicer Demonstration
 
-Caso tenha interesse em verificar o comportamento do modelo integrado em
-ambiente clínico simulado, assista ao nosso vídeo demonstrativo:
+Watch our demonstration video of the model integrated into 3D Slicer:
 
-👉 Assista ao vídeo [AQUI](https://drive.google.com/file/d/1wNqsYPZWvQr9I3iy7mbz6cN8zq6dLlKF/view?usp=sharing)
+👉 Watch the video [HERE](https://drive.google.com/file/d/1wNqsYPZWvQr9I3iy7mbz6cN8zq6dLlKF/view?usp=sharing)
